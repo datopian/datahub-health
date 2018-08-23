@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "version": 1,
+    "ownerid": "%(ownerid)s",
+    "owner": "%(owner)s",
+    "dataset": "basic-csv",
+    "findability": "unlisted"
+  },
+  "inputs": [
+    {
+      "kind": "datapackage",
+      "url": "https://raw.githubusercontent.com/frictionlessdata/test-data/master/packages/basic-csv/datapackage.json",
+      "parameters": {
+        "resource-mapping": {
+          "comma.csv": "https://raw.githubusercontent.com/frictionlessdata/test-data/master/packages/basic-csv/comma.csv"
+        },
+        "descriptor": {
+          "name": "basic-csv",
+          "resources": [
+            {
+              "path": "comma.csv",
+              "pathType": "local",
+              "name": "comma-separated",
+              "format": "csv",
+              "mediatype": "text/csv",
+              "schema": {
+                "fields": [
+                  {
+                    "name": "number",
+                    "type": "integer",
+                    "format": "default"
+                  },
+                  {
+                    "name": "string",
+                    "type": "string",
+                    "format": "default"
+                  },
+                  {
+                    "name": "boolean",
+                    "type": "boolean",
+                    "format": "default"
+                  }
+                ],
+                "missingValues": [
+                  ""
+                ]
+              },
+              "encoding": "ISO-8859-1"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
