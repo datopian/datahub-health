@@ -1,5 +1,8 @@
 language: python
 python:
     - "3.6"
+before_install:
+  - pip install requests
+  - openssl aes-256-cbc -K $encrypted_0cc812eb8759_key -iv $encrypted_0cc812eb8759_iv -in config.json.enc -out config.json -d
 script:
   - python main.py
