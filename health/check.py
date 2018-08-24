@@ -525,6 +525,13 @@ class HealtCheck:
         rep =  HealtCheck.check_numbers(3, body.get('summary')['total'],  'Metastore search events valid JWT: total is 0')
         metastore_report.append(rep)
 
+    def check_plans(self, prefix='plans'):
+        plans_endpoint = urljoin(self.base_url, prefix)
+        plans_report = []
+        resp = requests.get(plans_endpoint)
+        rep = HealtCheck.check_status(resp, 'Plans: status 401', 401)
+        plans_report.append(rep)
+
     def get_report(self):
         return self.health_report
 
