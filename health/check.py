@@ -341,7 +341,81 @@ class HealtCheck:
         rep = HealtCheck.check_body(body, 'userid', None, 'Auth profile invalid username: username null')
         auth_report.append(rep)
 
-        self.health_report['auth_report'] = auth_report
+    def check_filemanager(self,
+                        prefix='storage',
+                        bucket='pkgstore.datahub.io',
+                        dataset_id='basic-csv',
+                        resource_name='comma-separated'):
+        info = {
+            'prefix': 'source',
+            'owner': self.username,
+            'ownerid':self.owner_id,
+            'dataset_id': dataset_id,
+            'revision': 'latest'
+        }
+        revision_number = self.get_revision_number(info)
+        filemanager_report = []
+        info_endpoint = urljoin(self.base_url, path.join(prefix, 'info', bucket,
+                self.owner_id, dataset_id, resource_name, '{filename}'))
+        owner_endpoint = urljoin(self.base_url, path.join(prefix, 'owner', '{owner}'))
+        dataset_endpoint = urljoin(self.base_url, path.join(prefix, 'dataset_id', '{ownerid}', '{dataset_id}'))
+        flow_endpoint = urljoin(self.base_url, path.join(prefix, 'flow_id', '{ownerid}', '{dataset_id}', '{revision}'))
+
+        resp = requests.get(info_endpoint.format(filename='invalid'))
+        rep = HealtCheck.check_status(resp, 'Storage with invalid filename: status 404', 404)
+        filemanager_report.append(rep)
+
+        resp = requests.get(info_endpoint.format(filename='datapackage.json'))
+        rep = HealtCheck.check_status(resp, 'Storage with invalid filename: status 200', 200)
+        filemanager_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'owner', self.username, 'Storage with valid filename: owner matches')
+        filemanager_report.append(rep)
+
+        resp = requests.get(owner_endpoint.format(owner='invalid'))
+        rep = HealtCheck.check_status(resp, 'Storage with invalid owner: status 200', 200)
+        filemanager_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_numbers(0, body.get('totalBytes'), 'Storage with invalid owner: totalBytes is 0', equal=True)
+        filemanager_report.append(rep)
+
+        resp = requests.get(owner_endpoint.format(owner=self.username))
+        rep = HealtCheck.check_status(resp, 'Storage with valid owner: status 200', 200)
+        filemanager_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_numbers(0, body.get('totalBytes'), 'Storage with valid owner: totalBytes is more than 0')
+        filemanager_report.append(rep)
+
+        resp = requests.get(dataset_endpoint.format(ownerid=self.owner_id, dataset_id='invalid'))
+        rep = HealtCheck.check_status(resp, 'Storage with invalid dataset: status 200', 200)
+        filemanager_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_numbers(0, body.get('totalBytes'), 'Storage with invalid dataset: totalBytes is 0', equal=True)
+        filemanager_report.append(rep)
+
+        resp = requests.get(dataset_endpoint.format(ownerid=self.owner_id, dataset_id=dataset_id))
+        rep = HealtCheck.check_status(resp, 'Storage with valid dataset: status 200', 200)
+        filemanager_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_numbers(0, body.get('totalBytes'), 'Storage with valid dataset: totalBytes is more than 0')
+        filemanager_report.append(rep)
+
+        resp = requests.get(flow_endpoint.format(**info))
+        rep = HealtCheck.check_status(resp, 'Storage with invalid flow: status 200', 200)
+        filemanager_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_numbers(0, body.get('totalBytes'), 'Storage with invalid flow: totalBytes is 0', equal=True)
+        filemanager_report.append(rep)
+
+        info['revision'] = revision_number
+        resp = requests.get(flow_endpoint.format(**info))
+        rep = HealtCheck.check_status(resp, 'Storage with valid flow: status 200', 200)
+        filemanager_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_numbers(0, body.get('totalBytes'), 'Storage with invalid flow: totalBytes is more than 0')
+        filemanager_report.append(rep)
+
+        self.health_report['filemanager_report'] = filemanager_report
 
     def get_report(self):
         return self.health_report
@@ -349,3 +423,9 @@ class HealtCheck:
     def get_token(self, service):
         resp = requests.get(urljoin(self.base_url, 'auth/authorize?jwt=%s&service=%s' % (self.jwt, service)))
         return resp.json().get('token')
+
+    def get_revision_number(self, info):
+        info_endpoint = urljoin(self.base_url, '{prefix}/{ownerid}/{dataset_id}/{revision}')
+        resp = requests.get(info_endpoint.format(**info))
+        revision_number = int(resp.json().get('id', '').split('/')[-1])
+        return revision_number
