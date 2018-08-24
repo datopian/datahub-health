@@ -229,6 +229,119 @@ class HealtCheck:
         resp = requests.get(info_endpoint.format(**info))
         rep = HealtCheck.check_status(resp, 'Get invalid revision word: status 404', 404)
         flowmanager_report.append(rep)
+        self.health_report['flowmanager_report'] = flowmanager_report
+
+    def check_auth(self, prefix='auth'):
+        auth_check = urljoin(self.base_url, path.join(prefix, 'check?jwt={jwt}'))
+        auth_authorize = urljoin(self.base_url, path.join(prefix, 'authorize?jwt={jwt}&service={service}' ))
+        auth_update = urljoin(self.base_url, path.join(prefix, 'update?jwt={jwt}&username={username}'))
+        auth_public_key = urljoin(self.base_url, path.join(prefix, 'public-key' ))
+        auth_resolver = urljoin(self.base_url, path.join(prefix, 'resolve?username={username}' ))
+        auth_profile = urljoin(self.base_url, path.join(prefix, 'profile' ))
+
+        auth_report = []
+
+        resp = requests.get(auth_check.format(jwt='wrong'))
+        rep = HealtCheck.check_status(resp, 'Auth Check not authenticate: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'authenticated', False, 'Auth check not authenticate: success is false')
+        auth_report.append(rep)
+
+        resp = requests.get(auth_check.format(jwt=self.jwt))
+        rep = HealtCheck.check_status(resp, 'Auth Check authenticated: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'authenticated', True, 'Auth Check authenticated: success is true')
+        auth_report.append(rep)
+
+        resp = requests.get(auth_authorize.format(jwt='wrong', service='service'))
+        rep = HealtCheck.check_status(resp, 'Auth authorize invalid jwt: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'permissions', {}, 'Auth authorize invalid jwt: no pemissions')
+        auth_report.append(rep)
+
+        resp = requests.get(auth_authorize.format(jwt=self.jwt, service='service'))
+        rep = HealtCheck.check_status(resp, 'Auth authorize invalid service: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'permissions', {}, 'Auth authorize invalid service: no pemissions')
+        auth_report.append(rep)
+
+        resp = requests.get(auth_authorize.format(jwt=self.jwt, service='source'))
+        rep = HealtCheck.check_status(resp, 'Auth authorize success for source: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'permissions', {'max_dataset_num': 2}, 'Auth authorize success: pemissions there')
+        auth_report.append(rep)
+
+        resp = requests.get(auth_authorize.format(jwt=self.jwt, service='source'))
+        rep = HealtCheck.check_status(resp, 'Auth authorize success for source service: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'permissions', {'max_dataset_num': 2}, 'Auth authorize success for rawstore service: pemissions there')
+        auth_report.append(rep)
+
+        resp = requests.get(auth_authorize.format(jwt=self.jwt, service='rawstore'))
+        rep = HealtCheck.check_status(resp, 'Auth authorize success for source service: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'permissions', {'max_dataset_num': 2}, 'Auth authorize success for rawstore service: pemissions there')
+        auth_report.append(rep)
+
+        resp = requests.post(auth_update.format(jwt='invalid', username='tester'))
+        rep = HealtCheck.check_status(resp, 'Auth update invalid jwt: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'success', False, 'Auth update invalid jwt: success false')
+        auth_report.append(rep)
+        rep = HealtCheck.check_message(body.get('error', ''), 'Not authenticated', 'Auth update invalid jwt: Error message is incorrect')
+        auth_report.append(rep)
+
+        resp = requests.post(auth_update.format(jwt=self.jwt, username='tester'))
+        rep = HealtCheck.check_status(resp, 'Auth update valid jwt: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'success', False, 'Auth update valid jwt: success false')
+        auth_report.append(rep)
+        message = 'Cannot modify username, already set'
+        rep = HealtCheck.check_message(body.get('error', ''), message, 'Auth update valid jwt: Error message is incorrect')
+        auth_report.append(rep)
+
+        resp = requests.get(auth_public_key)
+        rep = HealtCheck.check_status(resp, 'Auth public key: status 200', 200)
+        auth_report.append(rep)
+
+        resp = requests.get(auth_resolver.format(username=self.username))
+        rep = HealtCheck.check_status(resp, 'Auth resolve valid username: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'userid', self.owner_id, 'Auth resolve valid username: coorect username')
+        auth_report.append(rep)
+
+        resp = requests.get(auth_resolver.format(username='invalid'))
+        rep = HealtCheck.check_status(resp, 'Auth resolve invalid username: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'userid', None, 'Auth resolve valid username: username null')
+        auth_report.append(rep)
+
+        resp = requests.get(authprofile.format(username=self.username))
+        rep = HealtCheck.check_status(resp, 'Auth profile valid username: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'userid', self.owner_id, 'Auth profile valid username: coorect username')
+        auth_report.append(rep)
+
+        resp = requests.get(authprofile.format(username='invalid'))
+        rep = HealtCheck.check_status(resp, 'Auth profile invalid username: status 200', 200)
+        auth_report.append(rep)
+        body = resp.json()
+        rep = HealtCheck.check_body(body, 'userid', None, 'Auth profile invalid username: username null')
+        auth_report.append(rep)
+
+        self.health_report['auth_report'] = auth_report
 
     def get_report(self):
         return self.health_report
