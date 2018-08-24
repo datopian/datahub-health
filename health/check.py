@@ -99,10 +99,10 @@ class HealtCheck:
 
     def display_report(self):
         for report in self.health_report:
-            print(report)
-            print('\t|', 'Name\t|', 'Success\t|', 'Error')
+            logging.info(report)
+            logging.info('\t|', 'Name\t|', 'Success\t|', 'Error')
             for item in self.health_report[report]:
-                print('\t|', '%s\t|' % item.get('name'), '%s\t|' % item.get('success'), '%s' % item.get('errors') or '')
+                logging.info('\t|', '%s\t|' % item.get('name'), '%s\t|' % item.get('success'), '%s' % item.get('errors') or '')
 
 
     def check_flowmanager(self, prefix='source', dataset_id='basic-csv', valid_content=None):
@@ -400,7 +400,6 @@ class HealtCheck:
         flow_endpoint = urljoin(self.base_url, path.join(prefix, 'flow_id', '{ownerid}', '{dataset_id}', '{revision}'))
 
         resp = requests.get(info_endpoint.format(filename='invalid'))
-        print(info_endpoint.format(filename='invalid'))
         rep = HealtCheck.check_status(resp, 'Storage with invalid filename: status 404', 404)
         filemanager_report.append(rep)
 
