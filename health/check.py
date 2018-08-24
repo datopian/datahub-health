@@ -473,15 +473,57 @@ class HealtCheck:
 
         resp = requests.get(resolve_endpoint.format(userid=self.username))
         rep = HealtCheck.check_status(resp, 'Resolver resolve valid owner: status 200', 200)
+        resolver_report.append(rep)
         body = resp.json()
         rep =  HealtCheck.check_body(body, 'userid', self.owner_id, 'Resolver resolve valid owner: owner matches')
         resolver_report.append(rep)
 
         resp = requests.get(resolve_endpoint.format(userid='invalid'))
         rep = HealtCheck.check_status(resp, 'Resolver resolve invalid owner: status 200', 200)
+        resolver_report.append(rep)
         body = resp.json()
         rep =  HealtCheck.check_body(body, 'userid', None, 'Resolver resolve invalid owner: owner is None')
         resolver_report.append(rep)
+
+        self.health_report['resolver_report'] = resolver_report
+
+    def check_metastore(self, prefix='metastore'):
+        dataset_endpoint = urljoin(self.base_url, path.join(prefix, 'search','dataset?datahub.ownerid="{owner}"'))
+        events_endpoint = urljoin(self.base_url, path.join(prefix, 'search', 'events?ownerid="{owner}"'))
+        headers = {'Auth-Token': '%s' % self.jwt}
+        metastore_report = []
+
+        resp = requests.get(dataset_endpoint.format(owner=self.owner_id))
+        rep = HealtCheck.check_status(resp, 'Metastore search datasets invalid JWT: status 200', 200)
+        metastore_report.append(rep)
+        body = resp.json()
+        rep =  HealtCheck.check_numbers(0, body.get('summary')['total'],  'Metastore search datasets invalid JWT: total is 0', equal=True)
+        metastore_report.append(rep)
+        rep =  HealtCheck.check_numbers(0, body.get('summary')['totalBytes'],  'Metastore search datasets invalid JWT: totalBytes is 0', equal=True)
+        metastore_report.append(rep)
+
+        resp = requests.get(dataset_endpoint.format(owner=self.owner_id), headers=headers)
+        rep = HealtCheck.check_status(resp, 'Metastore search datasets valid JWT: status 200', 200)
+        metastore_report.append(rep)
+        body = resp.json()
+        rep =  HealtCheck.check_numbers(0, body.get('summary')['total'],  'Metastore search datasets valid JWT: total is 0')
+        metastore_report.append(rep)
+        rep =  HealtCheck.check_numbers(0, body.get('summary')['totalBytes'],  'Metastore search datasets valid JWT: totalBytes is 0')
+        metastore_report.append(rep)
+
+        resp = requests.get(events_endpoint.format(owner=self.owner_id))
+        rep = HealtCheck.check_status(resp, 'Metastore search events invalid JWT: status 200', 200)
+        metastore_report.append(rep)
+        body = resp.json()
+        rep =  HealtCheck.check_numbers(0, body.get('summary')['total'],  'Metastore search events invalid JWT: total is 0')
+        metastore_report.append(rep)
+
+        resp = requests.get(events_endpoint.format(owner=self.owner_id), headers=headers)
+        rep = HealtCheck.check_status(resp, 'Metastore search events valid JWT: status 200', 200)
+        metastore_report.append(rep)
+        body = resp.json()
+        rep =  HealtCheck.check_numbers(3, body.get('summary')['total'],  'Metastore search events valid JWT: total is 0')
+        metastore_report.append(rep)
 
     def get_report(self):
         return self.health_report
