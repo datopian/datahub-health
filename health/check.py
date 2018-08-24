@@ -467,6 +467,22 @@ class HealtCheck:
 
         self.health_report['rawstore_report'] = rawstore_report
 
+    def check_resolver(self, prefix='resolver'):
+        resolve_endpoint = urljoin(self.base_url, path.join(prefix, 'resolve?path={userid}/dataset'))
+        resolver_report = []
+
+        resp = requests.get(resolve_endpoint.format(userid=self.username))
+        rep = HealtCheck.check_status(resp, 'Resolver resolve valid owner: status 200', 200)
+        body = resp.json()
+        rep =  HealtCheck.check_body(body, 'userid', self.owner_id, 'Resolver resolve valid owner: owner matches')
+        resolver_report.append(rep)
+
+        resp = requests.get(resolve_endpoint.format(userid='invalid'))
+        rep = HealtCheck.check_status(resp, 'Resolver resolve invalid owner: status 200', 200)
+        body = resp.json()
+        rep =  HealtCheck.check_body(body, 'userid', None, 'Resolver resolve invalid owner: owner is None')
+        resolver_report.append(rep)
+
     def get_report(self):
         return self.health_report
 
