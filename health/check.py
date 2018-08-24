@@ -1,6 +1,7 @@
 import copy
 import datetime
 import json
+import logging
 from os import path
 import requests
 import time
@@ -69,7 +70,42 @@ class HealtCheck:
         }
         return report
 
-    def check_flowmanager(self, prefix='source', dataset_id = 'basic-csv', valid_content=None):
+    def check_health(self):
+        logging.info('This may take a while, please wait')
+        logging.info('Scanning Auth Service...')
+        self.check_auth()
+        logging.info('Scanning Rawstore Service...')
+        self.check_bitstore()
+        logging.info('Scanning Flow Manager Service...')
+        self.check_flowmanager()
+        logging.info('Scanning File Manager Service...')
+        self.check_filemanager()
+        logging.info('Scanning Metastore Service...')
+        self.check_metastore()
+        logging.info('Scanning Resolver Service...')
+        self.check_resolver()
+        logging.info('Scanning Plans Service...')
+        self.check_plans()
+        logging.info('Scanning Frontend Service...')
+        self.check_frontend()
+        logging.info('Scan Finished!')
+
+    def alles_good(self):
+        successes = []
+        for report in self.health_report.values():
+            for item in report:
+                successes.append(item.get('success'))
+        return all(successes)
+
+    def display_report(self):
+        for report in self.health_report:
+            print(report)
+            print('\t|', 'Name\t|', 'Success\t|', 'Error')
+            for item in self.health_report[report]:
+                print('\t|', '%s\t|' % item.get('name'), '%s\t|' % item.get('success'), '%s' % item.get('errors') or '')
+
+
+    def check_flowmanager(self, prefix='source', dataset_id='basic-csv', valid_content=None):
         info = {
             'prefix': prefix,
             'owner': self.username,
@@ -237,7 +273,7 @@ class HealtCheck:
         auth_update = urljoin(self.base_url, path.join(prefix, 'update?jwt={jwt}&username={username}'))
         auth_public_key = urljoin(self.base_url, path.join(prefix, 'public-key' ))
         auth_resolver = urljoin(self.base_url, path.join(prefix, 'resolve?username={username}' ))
-        auth_profile = urljoin(self.base_url, path.join(prefix, 'profile' ))
+        auth_profile = urljoin(self.base_url, path.join(prefix, 'get_profile?username={username}' ))
 
         auth_report = []
 
@@ -287,7 +323,7 @@ class HealtCheck:
         rep = HealtCheck.check_status(resp, 'Auth authorize success for source service: status 200', 200)
         auth_report.append(rep)
         body = resp.json()
-        rep = HealtCheck.check_body(body, 'permissions', {'max_dataset_num': 2}, 'Auth authorize success for rawstore service: pemissions there')
+        rep = HealtCheck.check_body(body, 'permissions', {'max_private_storage_mb': 0, 'max_public_storage_mb': 100}, 'Auth authorize success for rawstore service: pemissions there')
         auth_report.append(rep)
 
         resp = requests.post(auth_update.format(jwt='invalid', username='tester'))
@@ -317,7 +353,7 @@ class HealtCheck:
         rep = HealtCheck.check_status(resp, 'Auth resolve valid username: status 200', 200)
         auth_report.append(rep)
         body = resp.json()
-        rep = HealtCheck.check_body(body, 'userid', self.owner_id, 'Auth resolve valid username: coorect username')
+        rep = HealtCheck.check_body(body, 'userid', self.owner_id, 'Auth resolve valid username: corect username')
         auth_report.append(rep)
 
         resp = requests.get(auth_resolver.format(username='invalid'))
@@ -327,19 +363,21 @@ class HealtCheck:
         rep = HealtCheck.check_body(body, 'userid', None, 'Auth resolve valid username: username null')
         auth_report.append(rep)
 
-        resp = requests.get(authprofile.format(username=self.username))
+        resp = requests.get(auth_profile.format(username=self.username))
         rep = HealtCheck.check_status(resp, 'Auth profile valid username: status 200', 200)
         auth_report.append(rep)
         body = resp.json()
-        rep = HealtCheck.check_body(body, 'userid', self.owner_id, 'Auth profile valid username: coorect username')
+        rep = HealtCheck.check_body(body, 'found', True, 'Auth profile valid username: corect username')
         auth_report.append(rep)
 
-        resp = requests.get(authprofile.format(username='invalid'))
+        resp = requests.get(auth_profile.format(username='invalid'))
         rep = HealtCheck.check_status(resp, 'Auth profile invalid username: status 200', 200)
         auth_report.append(rep)
         body = resp.json()
-        rep = HealtCheck.check_body(body, 'userid', None, 'Auth profile invalid username: username null')
+        rep = HealtCheck.check_body(body, 'found', False, 'Auth profile invalid username: username null')
         auth_report.append(rep)
+
+        self.health_report['auth_report'] = auth_report
 
     def check_filemanager(self,
                         prefix='storage',
@@ -362,6 +400,7 @@ class HealtCheck:
         flow_endpoint = urljoin(self.base_url, path.join(prefix, 'flow_id', '{ownerid}', '{dataset_id}', '{revision}'))
 
         resp = requests.get(info_endpoint.format(filename='invalid'))
+        print(info_endpoint.format(filename='invalid'))
         rep = HealtCheck.check_status(resp, 'Storage with invalid filename: status 404', 404)
         filemanager_report.append(rep)
 
@@ -525,12 +564,31 @@ class HealtCheck:
         rep =  HealtCheck.check_numbers(3, body.get('summary')['total'],  'Metastore search events valid JWT: total is 0')
         metastore_report.append(rep)
 
+        self.health_report['metastore_report'] = metastore_report
+
     def check_plans(self, prefix='plans'):
         plans_endpoint = urljoin(self.base_url, prefix)
         plans_report = []
         resp = requests.get(plans_endpoint)
         rep = HealtCheck.check_status(resp, 'Plans: status 401', 401)
         plans_report.append(rep)
+
+        self.health_report['plans_report'] = plans_report
+
+    def check_frontend(self, homepage='https://datahub.io', dataset='basic-csv'):
+        frontend_report = []
+        resp = requests.get(homepage)
+        rep = HealtCheck.check_status(resp, 'Frontend homepage: status 200', 200)
+        frontend_report.append(rep)
+
+        resp = requests.get(urljoin(homepage, '%s/%s' % (self.username, dataset)))
+        rep = HealtCheck.check_status(resp, 'Frontend showcase: status 200', 200)
+        frontend_report.append(rep)
+
+        resp = requests.get(urljoin(homepage,'search'))
+        rep = HealtCheck.check_status(resp, 'Frontend Search: status 200', 200)
+        frontend_report.append(rep)
+        self.health_report['frontend_report'] = frontend_report
 
     def get_report(self):
         return self.health_report
