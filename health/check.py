@@ -27,7 +27,7 @@ class HealtCheck:
         report = {
             'success': success,
             'errors': 'Unexpected status code: Expected %s, but Recieved %s' % (
-                                    resp.status_code, status) if not success else None,
+                                    status, resp.status_code) if not success else None,
             'name': report_name
         }
         return report
@@ -416,6 +416,56 @@ class HealtCheck:
         filemanager_report.append(rep)
 
         self.health_report['filemanager_report'] = filemanager_report
+
+    def check_bitstore(self, prefix='rawstore', dataset_id='basic-csv'):
+        info_endpoint = urljoin(self.base_url, path.join(prefix, 'info?jwt={jwt}'))
+        authorize_endpoint = urljoin(self.base_url, path.join(prefix, 'authorize?jwt={jwt}'))
+        presign_endpoint = urljoin(self.base_url, path.join(prefix, 'presign?jwt={jwt}&url={url}&ownerid={ownerid}'))
+
+        rawstore_report = []
+
+        resp = requests.get(info_endpoint.format(jwt='invalid'))
+        rep = HealtCheck.check_status(resp, 'Rawstore info with invalid JWT: status 401', 401)
+        rawstore_report.append(rep)
+
+        resp = requests.get(info_endpoint.format(jwt=self.get_token('rawstore')))
+        rep = HealtCheck.check_status(resp, 'Rawstore info with valid JWT: status 200', 200)
+        rawstore_report.append(rep)
+
+        resp = requests.post(authorize_endpoint.format(jwt='invalid'))
+        rep = HealtCheck.check_status(resp, 'Rawstore authorize with invalid JWT: status 400', 400)
+        rawstore_report.append(rep)
+
+        payload = {'metadata': {"owner": "invalid"}}
+        resp = requests.post(authorize_endpoint.format(jwt=self.get_token('rawstore')), json=payload)
+        rep = HealtCheck.check_status(resp, 'Rawstore authorize with invalid owner: status 401', 401)
+        rawstore_report.append(rep)
+
+        payload = {
+            'metadata': {"owner": self.owner_id, 'findability': 'unlisted', 'dataset': dataset_id},
+            'filedata': {'file.csv': {'length':  1000000000}}
+        }
+        resp = requests.post(authorize_endpoint.format(jwt=self.get_token('rawstore')), json=payload)
+        rep = HealtCheck.check_status(resp, 'Rawstore authorize exeeds limit: status 403', 403)
+        rawstore_report.append(rep)
+
+        payload = {
+          "metadata": {"owner": self.owner_id,"findability": "unlisted"},
+          "filedata": {
+            "comma.csv": {"length": 45,"md5": "XHvyntj8DTJCm4U+LF+S5g==","name": "comma-separated"},
+            "datapackage.json": {"length": 366,"md5": "f1cPlzjOYL3ymM/eaFKNhA==","name": "datapackage.json"}
+          }
+        }
+        resp = requests.post(authorize_endpoint.format(jwt=self.get_token('rawstore')), json=payload)
+        rep = HealtCheck.check_status(resp, 'Rawstore authorize valid input: status 200', 200)
+        rawstore_report.append(rep)
+
+        resp = requests.get(presign_endpoint.format(
+                        jwt='invalid',url='http://example.com',ownerid='invalid'))
+        rep = HealtCheck.check_status(resp, 'Rawstore presign no need to presign: status 200', 200)
+        rawstore_report.append(rep)
+
+        self.health_report['rawstore_report'] = rawstore_report
 
     def get_report(self):
         return self.health_report
