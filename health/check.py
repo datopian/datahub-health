@@ -1,7 +1,6 @@
 import copy
 import datetime
 import json
-import logging
 from os import path
 import requests
 import time
@@ -71,24 +70,24 @@ class HealtCheck:
         return report
 
     def check_health(self):
-        logging.info('This may take a while, please wait')
-        logging.info('Scanning Auth Service...')
+        print('This may take a while, please wait')
+        print('Scanning Auth Service...')
         self.check_auth()
-        logging.info('Scanning Rawstore Service...')
+        print('Scanning Rawstore Service...')
         self.check_bitstore()
-        logging.info('Scanning Flow Manager Service...')
+        print('Scanning Flow Manager Service...')
         self.check_flowmanager()
-        logging.info('Scanning File Manager Service...')
+        print('Scanning File Manager Service...')
         self.check_filemanager()
-        logging.info('Scanning Metastore Service...')
+        print('Scanning Metastore Service...')
         self.check_metastore()
-        logging.info('Scanning Resolver Service...')
+        print('Scanning Resolver Service...')
         self.check_resolver()
-        logging.info('Scanning Plans Service...')
+        print('Scanning Plans Service...')
         self.check_plans()
-        logging.info('Scanning Frontend Service...')
+        print('Scanning Frontend Service...')
         self.check_frontend()
-        logging.info('Scan Finished!')
+        print('Scan Finished!')
 
     def alles_good(self):
         successes = []
@@ -99,10 +98,10 @@ class HealtCheck:
 
     def display_report(self):
         for report in self.health_report:
-            logging.info(report)
-            logging.info('\t|', 'Name\t|', 'Success\t|', 'Error')
+            print(report)
+            print('\t|', 'Name\t|', 'Success\t|', 'Error')
             for item in self.health_report[report]:
-                logging.info('\t|', '%s\t|' % item.get('name'), '%s\t|' % item.get('success'), '%s' % item.get('errors') or '')
+                print('\t|', '%s\t|' % item.get('name'), '%s\t|' % item.get('success'), '%s' % item.get('errors') or '')
 
 
     def check_flowmanager(self, prefix='source', dataset_id='basic-csv', valid_content=None):
