@@ -19,6 +19,7 @@ class HealtCheck:
         self.email = self.user_info['profile'].get('email')
         self.username = self.user_info['profile'].get('username')
         self.now = datetime.datetime.now()
+        self.today = datetime.datetime(self.now.year, self.now.month, self.now.day)
         self.health_report = {}
 
     @staticmethod
@@ -101,7 +102,8 @@ class HealtCheck:
             print(report)
             print('\t|', 'Name\t|', 'Success\t|', 'Error')
             for item in self.health_report[report]:
-                print('\t|', '%s\t|' % item.get('name'), '%s\t|' % item.get('success'), '%s' % item.get('errors') or '')
+                if not item.get('success'):
+                    print('\t|', '%s\t|' % item.get('name'), '%s\t|' % item.get('success'), '%s' % item.get('errors') or '')
 
 
     def check_flowmanager(self, prefix='source', dataset_id='basic-csv', valid_content=None):
@@ -548,6 +550,14 @@ class HealtCheck:
         rep =  HealtCheck.check_numbers(0, body.get('summary')['totalBytes'],  'Metastore search datasets valid JWT: totalBytes is 0')
         metastore_report.append(rep)
 
+        resp = requests.get(dataset_endpoint.format(owner=self.owner_id), headers=headers)
+        datasets = resp.json().get('results')
+        dataset = [i for i in datasets if i.get('name') == 'basic-csv'][0]
+        update_time = dataset.get('datahub', {}).get('modified')
+        update_time = datetime.datetime.strptime(update_time, '%Y-%m-%dT%H:%M:%S.%f')
+        rep =  HealtCheck.check_numbers(self.today, update_time, 'Metastore Latest metadata is there')
+        metastore_report.append(rep)
+
         resp = requests.get(events_endpoint.format(owner=self.owner_id))
         rep = HealtCheck.check_status(resp, 'Metastore search events invalid JWT: status 200', 200)
         metastore_report.append(rep)
@@ -560,6 +570,13 @@ class HealtCheck:
         metastore_report.append(rep)
         body = resp.json()
         rep =  HealtCheck.check_numbers(3, body.get('summary')['total'],  'Metastore search events valid JWT: total is 0')
+        metastore_report.append(rep)
+
+        events = resp.json().get('results')
+        event = [i for i in events if i.get('dataset') == 'basic-csv'][0]
+        update_time = event.get('timestamp')
+        update_time = datetime.datetime.strptime(update_time, '%Y-%m-%dT%H:%M:%S.%f')
+        rep =  HealtCheck.check_numbers(self.today, update_time, 'Metastore Latest event is there')
         metastore_report.append(rep)
 
         self.health_report['metastore_report'] = metastore_report
